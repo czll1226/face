@@ -22,16 +22,21 @@ public class DnnFaceDetectUtil {
         Loader.load(opencv_java.class);
     }
 
+
+    /**
+     * 模型加载慢全局只加载一次 全局共用这一个
+     */
     private static final Net FACE_NET;
 
     static {
         try {
+//            模型加载 OpenCV DNN 只能读真实文件，不能读jar中的数据流
             File proto = copyResource("dnn/deploy.prototxt");
             File model = copyResource("dnn/res10_300x300_ssd_iter_140000.caffemodel");
 
             FACE_NET = Dnn.readNetFromCaffe(proto.getAbsolutePath(), model.getAbsolutePath());
             if (FACE_NET.empty()) {
-                throw new RuntimeException("DNN 人脸模型加载失败，net 为空");
+                throw new RuntimeException("DNN 人脸模型加载失败,net 为空");
             }
 
             System.out.println("✅ DNN 人脸模型加载成功");
@@ -51,7 +56,7 @@ public class DnnFaceDetectUtil {
         Mat image = Imgcodecs.imread(imageFile.getAbsolutePath());
         if (image.empty()) return false;
 
-        // 预处理 blob
+        // 预处理 blob 和模型绑定需固定 来自模型训练 写死
         Mat blob = Dnn.blobFromImage(
                 image,
                 1.0,
@@ -63,7 +68,6 @@ public class DnnFaceDetectUtil {
 
         FACE_NET.setInput(blob);
 
-        // forward
         Mat detections = FACE_NET.forward();
 
         // reshape 为 [N,7] 每行：[batch_id, class_id, confidence, x1, y1, x2, y2]
@@ -79,12 +83,19 @@ public class DnnFaceDetectUtil {
         return false;
     }
 
-    /** 重载，默认置信度 0.6 */
+    //默认是0.6置信度
     public static boolean hasHumanFace(File imageFile) {
         return hasHumanFace(imageFile, 0.6);
     }
 
-    /** 从 classpath 拷贝模型到临时文件 */
+    /**
+     * 从 classpath 拷贝模型到临时文件 @param path 路径
+     *
+     * @return {@link File}
+     * @throws Exception 异常
+     * @author 11201
+     * @ date 2026/01/14 23:39
+     */
     private static File copyResource(String path) throws Exception {
         InputStream is = DnnFaceDetectUtil.class
                 .getClassLoader()
