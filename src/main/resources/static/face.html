@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人脸检测系统</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; padding-top: 50px; background-color: #f5f7fa; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 400px; text-align: center; }
+        h2 { color: #333; margin-bottom: 1.5rem; }
+        .upload-area { border: 2px dashed #d1d5db; padding: 20px; border-radius: 8px; cursor: pointer; transition: border 0.3s; }
+        .upload-area:hover { border-color: #3b82f6; }
+        #fileInput { display: none; }
+        .btn { background-color: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-top: 1rem; width: 100%; font-size: 16px; }
+        .btn:disabled { background-color: #93c5fd; cursor: not-allowed; }
+
+        /* 结果显示区域 */
+        #resultDisplay { margin-top: 1.5rem; padding: 15px; border-radius: 8px; display: none; font-weight: bold; }
+        .has-face { background-color: #d1fae5; color: #065f46; border: 1px solid #34d399; }
+        .no-face { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+        .loading { color: #6b7280; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>人脸检测</h2>
+
+    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <p id="fileNameDisplay">点击或拖拽图片上传</p>
+        <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <button class="btn" id="uploadBtn">开始检测</button>
+
+    <div id="resultDisplay"></div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const resultDisplay = document.getElementById('resultDisplay');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+    // 选择文件后显示文件名
+    fileInput.onchange = () => {
+        if (fileInput.files.length > 0) {
+            fileNameDisplay.innerText = fileInput.files[0].name;
+            resultDisplay.style.display = 'none';
+        }
+    };
+
+    uploadBtn.onclick = async () => {
+        const file = fileInput.files[0];
+        if (!file) {
+            showResult('请先选择一张图片', 'no-face');
+            return;
+        }
+
+        // 准备数据
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // UI 状态更新
+        uploadBtn.disabled = true;
+        showResult('正在检测中...', 'loading');
+
+        try {
+            // 发送请求到后端
+            const response = await fetch('http://localhost:8080/face/detect', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const hasFace = await response.json(); // 后端返回 boolean
+                if (hasFace === true) {
+                    showResult('✅ 检测到人脸', 'has-face');
+                } else {
+                    showResult('❌ 未检测到人脸', 'no-face');
+                }
+            } else {
+                showResult('服务器响应错误: ' + response.status, 'no-face');
+            }
+        } catch (error) {
+            showResult('网络错误，请检查后端服务是否启动', 'no-face');
+            console.error(error);
+        } finally {
+            uploadBtn.disabled = false;
+        }
+    };
+
+    function showResult(text, className) {
+        resultDisplay.innerText = text;
+        resultDisplay.className = ''; // 清除旧样式
+        resultDisplay.classList.add(className);
+        resultDisplay.style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
